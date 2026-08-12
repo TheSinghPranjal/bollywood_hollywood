@@ -242,8 +242,6 @@ class GameController extends StateNotifier<GameControllerState>
 
     if (next.status == GameStatus.won) {
       _ticker?.cancel();
-      final scored = next.copyWith(score: _engine.calculateScore(next));
-      state = state.copyWith(session: scored);
       await feedback.win(
         sound: settings.soundEnabled,
         haptics: settings.hapticsEnabled,
