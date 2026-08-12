@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/app_theme.dart';
 import '../../data/models/game_status.dart';
 import '../../data/models/movie.dart';
 import '../game/game_controller.dart';
@@ -25,7 +24,6 @@ Future<void> showWinDialog(BuildContext context, WidgetRef ref) {
         title: session.movie.title,
         industry: session.movie.industry.label,
         year: session.movie.year,
-        score: session.score,
         onNextRound: () async {
           Navigator.pop(dialogContext);
           await ref.read(gameControllerProvider.notifier).nextRound();
@@ -51,21 +49,22 @@ Future<void> showWinDialog(BuildContext context, WidgetRef ref) {
 }
 
 Future<void> showLoseDialog(BuildContext context, WidgetRef ref) {
-  final state = ref.read(gameControllerProvider);
-  final session = state.session;
+  final session = ref.read(gameControllerProvider).session;
   if (session == null) return Future.value();
 
-  return showDialog<void>(
+  return showGeneralDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (dialogContext) {
+    barrierLabel: 'Game over',
+    barrierColor: Colors.black.withValues(alpha: 0.62),
+    transitionDuration: const Duration(milliseconds: 280),
+    pageBuilder: (dialogContext, animation, secondaryAnimation) {
       return Consumer(
-        builder: (context, ref, _) {
+        builder: (consumerContext, ref, _) {
           final live = ref.watch(gameControllerProvider);
           final s = live.session;
           if (s == null) return const SizedBox.shrink();
 
-          // If rewarded life restored play, close dialog.
           if (s.status == GameStatus.extraLifePlaying ||
               s.status == GameStatus.playing) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -75,75 +74,38 @@ Future<void> showLoseDialog(BuildContext context, WidgetRef ref) {
             });
           }
 
-          final adError = live.adErrorMessage;
-
-          return AlertDialog(
-            title: Text(adError != null ? 'Reward Failed' : 'GAME OVER'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (adError != null)
-                  Text(adError, textAlign: TextAlign.center)
-                else ...[
-                  const Text('The movie was:'),
-                  const SizedBox(height: 8),
-                  Text(
-                    s.movie.title.toUpperCase(),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.gold,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            actionsAlignment: MainAxisAlignment.center,
-            actions: [
-              if (adError != null) ...[
-                TextButton(
-                  onPressed: () {
-                    ref.read(gameControllerProvider.notifier).clearAdError();
-                    ref.read(gameControllerProvider.notifier).watchRewardedAd();
-                  },
-                  child: const Text('TRY AGAIN'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                    ref.read(gameControllerProvider.notifier).clearSession();
-                    Navigator.pop(context);
-                  },
-                  child: const Text('END GAME'),
-                ),
-              ] else ...[
-                if (s.canOfferRewardedLife)
-                  TextButton(
-                    onPressed: () {
-                      ref.read(gameControllerProvider.notifier).watchRewardedAd();
-                    },
-                    child: const Text('WATCH AD +1 LIFE'),
-                  ),
-                TextButton(
-                  onPressed: () async {
-                    Navigator.pop(dialogContext);
-                    await ref.read(gameControllerProvider.notifier).nextRound();
-                  },
-                  child: const Text('NEXT ROUND'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                    ref.read(gameControllerProvider.notifier).clearSession();
-                    Navigator.pop(context);
-                  },
-                  child: const Text('HOME'),
-                ),
-              ],
-            ],
+          return _LoseResultCard(
+            title: s.movie.title,
+            adError: live.adErrorMessage,
+            canWatchAd: s.canOfferRewardedLife,
+            onWatchAd: () {
+              ref.read(gameControllerProvider.notifier).watchRewardedAd();
+            },
+            onTryAgain: () {
+              ref.read(gameControllerProvider.notifier).clearAdError();
+              ref.read(gameControllerProvider.notifier).watchRewardedAd();
+            },
+            onNextRound: () async {
+              Navigator.pop(dialogContext);
+              await ref.read(gameControllerProvider.notifier).nextRound();
+            },
+            onHome: () {
+              Navigator.pop(dialogContext);
+              ref.read(gameControllerProvider.notifier).clearSession();
+              Navigator.pop(context);
+            },
           );
         },
+      );
+    },
+    transitionBuilder: (context, anim, secondaryAnimation, child) {
+      final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
+      return FadeTransition(
+        opacity: anim,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.92, end: 1).animate(curved),
+          child: child,
+        ),
       );
     },
   );
@@ -205,12 +167,293 @@ Future<void> showPauseDialog(BuildContext context, WidgetRef ref) {
   );
 }
 
+class _LoseResultCard extends StatelessWidget {
+  const _LoseResultCard({
+    required this.title,
+    required this.adError,
+    required this.canWatchAd,
+    required this.onWatchAd,
+    required this.onTryAgain,
+    required this.onNextRound,
+    required this.onHome,
+  });
+
+  final String title;
+  final String? adError;
+  final bool canWatchAd;
+  final VoidCallback onWatchAd;
+  final VoidCallback onTryAgain;
+  final VoidCallback onNextRound;
+  final VoidCallback onHome;
+
+  @override
+  Widget build(BuildContext context) {
+    final failed = adError != null;
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF221A38), Color(0xFF14101F)],
+                ),
+                border: Border.all(color: _gold.withValues(alpha: 0.9), width: 1.4),
+                boxShadow: [
+                  BoxShadow(
+                    color: _gold.withValues(alpha: 0.28),
+                    blurRadius: 28,
+                    spreadRadius: 1,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(22, 28, 22, 22),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      failed ? 'REWARD FAILED' : 'GAME OVER',
+                      style: const TextStyle(
+                        color: Color(0xFFF7F4EE),
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2.6,
+                        fontSize: 22,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const SizedBox(
+                      height: 18,
+                      width: double.infinity,
+                      child: CustomPaint(painter: _SparkleDividerPainter()),
+                    ),
+                    const SizedBox(height: 18),
+                    if (failed)
+                      Text(
+                        adError!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFFB7B1C7),
+                          fontSize: 15,
+                          height: 1.4,
+                        ),
+                      )
+                    else ...[
+                      const Text(
+                        'The movie was:',
+                        style: TextStyle(
+                          color: Color(0xFFB7B1C7),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _RevealedTitle(title: title),
+                    ],
+                    const SizedBox(height: 28),
+                    if (failed) ...[
+                      _GoldFilledButton(label: 'TRY AGAIN', onTap: onTryAgain),
+                      const SizedBox(height: 12),
+                      _GoldOutlineButton(label: 'END GAME', onTap: onHome),
+                    ] else ...[
+                      if (canWatchAd) ...[
+                        _GoldFilledButton(
+                          label: 'WATCH AD +1 LIFE',
+                          onTap: onWatchAd,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      _GoldOutlineButton(label: 'NEXT ROUND', onTap: onNextRound),
+                      const SizedBox(height: 12),
+                      _GoldOutlineButton(label: 'HOME', onTap: onHome),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RevealedTitle extends StatelessWidget {
+  const _RevealedTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 88,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            painter: _TitleSparklesPainter(),
+            child: const SizedBox.expand(),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 160,
+                height: 1,
+                color: _gold.withValues(alpha: 0.55),
+              ),
+              const SizedBox(height: 10),
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFFFE08A), Color(0xFFD4AF37)],
+                ).createShader(bounds),
+                child: Text(
+                  title.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2.4,
+                    shadows: [
+                      Shadow(
+                        color: _gold.withValues(alpha: 0.6),
+                        blurRadius: 18,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                width: 160,
+                height: 1,
+                color: _gold.withValues(alpha: 0.55),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TitleSparklesPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = _gold.withValues(alpha: 0.7);
+    final dots = <Offset>[
+      Offset(size.width * 0.12, size.height * 0.28),
+      Offset(size.width * 0.22, size.height * 0.72),
+      Offset(size.width * 0.78, size.height * 0.22),
+      Offset(size.width * 0.88, size.height * 0.62),
+      Offset(size.width * 0.08, size.height * 0.55),
+      Offset(size.width * 0.92, size.height * 0.38),
+    ];
+    final radii = [2.2, 1.4, 2.0, 1.6, 1.2, 1.8];
+    for (var i = 0; i < dots.length; i++) {
+      canvas.drawCircle(dots[i], radii[i], paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _GoldFilledButton extends StatelessWidget {
+  const _GoldFilledButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        height: 52,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFF0D070), Color(0xFFD4AF37)],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: _gold.withValues(alpha: 0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.1,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GoldOutlineButton extends StatelessWidget {
+  const _GoldOutlineButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        height: 52,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _gold, width: 1.5),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: _gold,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.1,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _WinResultCard extends StatelessWidget {
   const _WinResultCard({
     required this.title,
     required this.industry,
     required this.year,
-    required this.score,
     required this.onNextRound,
     required this.onHome,
   });
@@ -218,7 +461,6 @@ class _WinResultCard extends StatelessWidget {
   final String title;
   final String industry;
   final int year;
-  final int score;
   final VoidCallback onNextRound;
   final VoidCallback onHome;
 
@@ -296,32 +538,7 @@ class _WinResultCard extends StatelessWidget {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        const SizedBox(
-                          height: 18,
-                          width: double.infinity,
-                          child: CustomPaint(painter: _SparkleDividerPainter()),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'SCORE',
-                          style: TextStyle(
-                            color: Color(0xFFB7B1C7),
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 2.2,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '$score',
-                          style: const TextStyle(
-                            color: _gold,
-                            fontSize: 34,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1,
-                          ),
-                        ),
+                        const SizedBox(height: 12),
                       ],
                     ),
                   ),
