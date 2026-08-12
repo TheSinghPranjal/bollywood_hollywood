@@ -75,7 +75,6 @@ class GameSession extends Equatable {
     required this.elapsed,
     required this.extraLifeActive,
     required this.extraLifeUsed,
-    required this.score,
     required this.lastGuess,
   });
 
@@ -93,7 +92,6 @@ class GameSession extends Equatable {
   final Duration elapsed;
   final bool extraLifeActive;
   final bool extraLifeUsed;
-  final int score;
   final GuessResult? lastGuess;
 
   bool get hasExtraLifeVisual => extraLifeActive;
@@ -135,7 +133,6 @@ class GameSession extends Equatable {
     Duration? elapsed,
     bool? extraLifeActive,
     bool? extraLifeUsed,
-    int? score,
     GuessResult? lastGuess,
     bool clearLastGuess = false,
   }) {
@@ -155,7 +152,6 @@ class GameSession extends Equatable {
       elapsed: elapsed ?? this.elapsed,
       extraLifeActive: extraLifeActive ?? this.extraLifeActive,
       extraLifeUsed: extraLifeUsed ?? this.extraLifeUsed,
-      score: score ?? this.score,
       lastGuess: clearLastGuess ? lastGuess : lastGuess ?? this.lastGuess,
     );
   }
@@ -176,7 +172,6 @@ class GameSession extends Equatable {
         elapsed,
         extraLifeActive,
         extraLifeUsed,
-        score,
         lastGuess,
       ];
 }
@@ -296,7 +291,6 @@ class GameEngine {
       elapsed: Duration.zero,
       extraLifeActive: false,
       extraLifeUsed: false,
-      score: 0,
       lastGuess: null,
     );
   }
@@ -360,14 +354,12 @@ class GameEngine {
       }).toList();
 
       final won = _isFullyRevealed(newCells);
-      final score = won ? calculateScore(session.copyWith(cells: newCells)) : session.score;
 
       return session.copyWith(
         cells: newCells,
         guessedLetters: guessed,
         correctLetters: {...session.correctLetters, letter},
         status: won ? GameStatus.won : session.status,
-        score: score,
         lastGuess: GuessResult(
           letter: letter,
           ignored: false,
@@ -504,17 +496,6 @@ class GameEngine {
 
   GameSession setStatus(GameSession session, GameStatus status) {
     return session.copyWith(status: status);
-  }
-
-  int calculateScore(GameSession session) {
-    const base = 1000;
-    final livesBonus = session.livesRemaining * 80;
-    final hintFreeBonus =
-        session.unlockedHintCount == 0 ? 250 : (4 - session.unlockedHintCount) * 40;
-    final speedBonus = session.remainingTime == null
-        ? 100
-        : (session.remainingTime!.inSeconds.clamp(0, 600) ~/ 6);
-    return base + livesBonus + hintFreeBonus + speedBonus;
   }
 
   bool _isFullyRevealed(List<MaskCell> cells) {
