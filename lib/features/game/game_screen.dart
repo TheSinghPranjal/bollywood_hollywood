@@ -39,6 +39,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       } else if (status == GameStatus.lost) {
         _lastStatus = status;
         showLoseDialog(context, ref);
+      } else if (status == GameStatus.watchingRewardedAd ||
+          status == GameStatus.adLoading) {
+        _lastStatus = status;
       } else if (status == GameStatus.paused &&
           prev?.session?.status != GameStatus.paused) {
         _lastStatus = status;
