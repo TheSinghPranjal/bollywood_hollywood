@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/providers.dart';
 import '../../data/models/game_settings.dart';
 import '../../data/models/game_status.dart';
@@ -92,7 +93,11 @@ class GameController extends StateNotifier<GameControllerState>
     _ticker?.cancel();
     _countdownTimer?.cancel();
 
-    if (fromNextRound && !_skipNextInterstitial && state.roundsPlayed > 0) {
+    final shouldShowInterstitial = fromNextRound &&
+        !_skipNextInterstitial &&
+        state.roundsPlayed > 0 &&
+        state.roundsPlayed % AppConstants.interstitialEveryNRounds == 0;
+    if (shouldShowInterstitial) {
       final ads = _ref.read(adsServiceProvider);
       state = state.copyWith(
         session: state.session?.copyWith(status: GameStatus.adLoading),
