@@ -26,7 +26,9 @@ final gameEngineProvider = Provider<GameEngine>((ref) {
 });
 
 final adsServiceProvider = Provider<AdsService>((ref) {
-  // Test-mode fake ads keep gameplay reliable on all platforms in development.
+  if (AppConstants.adsSupported) {
+    return MobileAdsService(isTestMode: AppConstants.isAdTestMode);
+  }
   return FakeAdsService();
 });
 

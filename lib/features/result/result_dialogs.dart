@@ -66,7 +66,8 @@ Future<void> showLoseDialog(BuildContext context, WidgetRef ref) {
           if (s == null) return const SizedBox.shrink();
 
           if (s.status == GameStatus.extraLifePlaying ||
-              s.status == GameStatus.playing) {
+              s.status == GameStatus.playing ||
+              s.status == GameStatus.watchingRewardedAd) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (Navigator.of(dialogContext).canPop()) {
                 Navigator.of(dialogContext).pop();
@@ -193,9 +194,12 @@ class _LoseResultCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
+            constraints: BoxConstraints(
+              maxWidth: 420,
+              maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+            ),
             child: DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(28),
@@ -218,7 +222,7 @@ class _LoseResultCard extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(22, 28, 22, 22),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -296,17 +300,15 @@ class _RevealedTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 88,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CustomPaint(
-            painter: _TitleSparklesPainter(),
-            child: const SizedBox.expand(),
-          ),
-          Column(
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Positioned.fill(
+          child: CustomPaint(painter: _TitleSparklesPainter()),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
@@ -324,11 +326,14 @@ class _RevealedTitle extends StatelessWidget {
                 child: Text(
                   title.toUpperCase(),
                   textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 32,
+                    fontSize: title.length > 14 ? 24 : 30,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 2.4,
+                    letterSpacing: title.length > 14 ? 1.0 : 2.0,
+                    height: 1.15,
                     shadows: [
                       Shadow(
                         color: _gold.withValues(alpha: 0.6),
@@ -346,8 +351,8 @@ class _RevealedTitle extends StatelessWidget {
               ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -470,9 +475,12 @@ class _WinResultCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
+            constraints: BoxConstraints(
+              maxWidth: 420,
+              maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+            ),
             child: DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(28),
@@ -495,84 +503,88 @@ class _WinResultCard extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 8),
-                    child: Column(
-                      children: [
-                        const Text(
-                          'YOU GOT IT!',
-                          style: TextStyle(
-                            color: Color(0xFFF7F4EE),
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 2.4,
-                            fontSize: 16,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 8),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'YOU GOT IT!',
+                            style: TextStyle(
+                              color: Color(0xFFF7F4EE),
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 2.4,
+                              fontSize: 16,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 18),
-                        Text(
-                          title.toUpperCase(),
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: _gold,
-                            fontSize: 30,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.2,
-                            height: 1.15,
-                            shadows: [
-                              Shadow(
-                                color: _gold.withValues(alpha: 0.55),
-                                blurRadius: 18,
-                              ),
-                            ],
+                          const SizedBox(height: 18),
+                          Text(
+                            title.toUpperCase(),
+                            textAlign: TextAlign.center,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: _gold,
+                              fontSize: title.length > 14 ? 24 : 30,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                              height: 1.15,
+                              shadows: [
+                                Shadow(
+                                  color: _gold.withValues(alpha: 0.55),
+                                  blurRadius: 18,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          '$industry  •  $year',
-                          style: const TextStyle(
-                            color: Color(0xFFE8E0D2),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                          const SizedBox(height: 10),
+                          Text(
+                            '$industry  •  $year',
+                            style: const TextStyle(
+                              color: Color(0xFFE8E0D2),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
+                          const SizedBox(height: 12),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: _gold.withValues(alpha: 0.28),
-                  ),
-                  SizedBox(
-                    height: 56,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _FooterAction(
-                            label: 'NEXT ROUND',
-                            onTap: onNextRound,
-                          ),
-                        ),
-                        VerticalDivider(
-                          width: 1,
-                          thickness: 1,
-                          color: _gold.withValues(alpha: 0.28),
-                        ),
-                        Expanded(
-                          child: _FooterAction(
-                            label: 'HOME',
-                            onTap: onHome,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 12),
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: _gold.withValues(alpha: 0.28),
                     ),
-                  ),
-                ],
+                    SizedBox(
+                      height: 56,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _FooterAction(
+                              label: 'NEXT ROUND',
+                              onTap: onNextRound,
+                            ),
+                          ),
+                          VerticalDivider(
+                            width: 1,
+                            thickness: 1,
+                            color: _gold.withValues(alpha: 0.28),
+                          ),
+                          Expanded(
+                            child: _FooterAction(
+                              label: 'HOME',
+                              onTap: onHome,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
