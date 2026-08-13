@@ -1,3 +1,10 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+
+import '../../core/constants/app_constants.dart';
+
 abstract class AdsService {
   Future<void> initialize();
   Future<bool> showRewardedAd();
@@ -5,7 +12,7 @@ abstract class AdsService {
   bool get isInitialized;
 }
 
-/// Development / test mode ads — simulates success without real AdMob network.
+/// Used in widget tests and on platforms where AdMob is unavailable.
 class FakeAdsService implements AdsService {
   FakeAdsService({this.rewardedSucceeds = true, this.interstitialSucceeds = true});
 
@@ -34,44 +41,195 @@ class FakeAdsService implements AdsService {
   }
 }
 
-/// Production-oriented wrapper. Uses test IDs when [isTestMode] is true.
-/// Banner is rendered via [BannerAdWidget] separately (platform view).
+/// Real AdMob implementation. Uses Google sample / test unit IDs in debug.
 class MobileAdsService implements AdsService {
   MobileAdsService({required this.isTestMode});
 
   final bool isTestMode;
   bool _initialized = false;
+  RewardedAd? _rewardedAd;
+  InterstitialAd? _interstitialAd;
+  Completer<RewardedAd?>? _rewardedLoad;
+  Completer<InterstitialAd?>? _interstitialLoad;
 
   @override
   bool get isInitialized => _initialized;
 
   @override
   Future<void> initialize() async {
-    // google_mobile_ads init is platform-specific; keep safe for tests/desktop.
+    if (!AppConstants.adsSupported) {
+      _initialized = false;
+      return;
+    }
     try {
-      // Lazy import avoidance: callers on mobile should use real init.
+      await MobileAds.instance.initialize();
+      if (isTestMode) {
+        await MobileAds.instance.updateRequestConfiguration(
+          RequestConfiguration(
+            testDeviceIds: const ['EMULATOR'],
+          ),
+        );
+      }
       _initialized = true;
-    } catch (_) {
+      unawaited(_loadRewarded());
+      unawaited(_loadInterstitial());
+    } catch (error, stack) {
+      debugPrint('AdMob initialize failed: $error\n$stack');
       _initialized = false;
     }
   }
 
+  AdRequest get _request => const AdRequest();
+
+  Future<RewardedAd?> _loadRewarded() {
+    if (_rewardedAd != null) return Future.value(_rewardedAd);
+    if (_rewardedLoad != null) return _rewardedLoad!.future;
+
+    final completer = Completer<RewardedAd?>();
+    _rewardedLoad = completer;
+
+    RewardedAd.load(
+      adUnitId: AppConstants.rewardedAdUnitId,
+      request: _request,
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          _rewardedAd = ad;
+          _rewardedLoad = null;
+          if (!completer.isCompleted) completer.complete(ad);
+        },
+        onAdFailedToLoad: (error) {
+          debugPrint('Rewarded failed to load: $error');
+          _rewardedAd = null;
+          _rewardedLoad = null;
+          if (!completer.isCompleted) completer.complete(null);
+        },
+      ),
+    );
+
+    return completer.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        _rewardedLoad = null;
+        return null;
+      },
+    );
+  }
+
+  Future<InterstitialAd?> _loadInterstitial() {
+    if (_interstitialAd != null) return Future.value(_interstitialAd);
+    if (_interstitialLoad != null) return _interstitialLoad!.future;
+
+    final completer = Completer<InterstitialAd?>();
+    _interstitialLoad = completer;
+
+    InterstitialAd.load(
+      adUnitId: AppConstants.interstitialAdUnitId,
+      request: _request,
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (ad) {
+          _interstitialAd = ad;
+          _interstitialLoad = null;
+          if (!completer.isCompleted) completer.complete(ad);
+        },
+        onAdFailedToLoad: (error) {
+          debugPrint('Interstitial failed to load: $error');
+          _interstitialAd = null;
+          _interstitialLoad = null;
+          if (!completer.isCompleted) completer.complete(null);
+        },
+      ),
+    );
+
+    return completer.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        _interstitialLoad = null;
+        return null;
+      },
+    );
+  }
+
   @override
   Future<bool> showRewardedAd() async {
-    // Fallback to simulated reward in test mode until platform ads are wired.
-    if (isTestMode) {
-      await Future<void>.delayed(const Duration(milliseconds: 500));
-      return true;
+    if (!_initialized) return false;
+    var ad = _rewardedAd;
+    ad ??= await _loadRewarded();
+    if (ad == null) {
+      ad = await _loadRewarded();
     }
-    return false;
+    if (ad == null) return false;
+    _rewardedAd = null;
+
+    final completer = Completer<bool>();
+    var earned = false;
+
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (ad) {
+        debugPrint('Rewarded ad shown');
+      },
+      onAdDismissedFullScreenContent: (ad) async {
+        ad.dispose();
+        // iOS often fires dismiss before onUserEarnedReward.
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        if (!completer.isCompleted) completer.complete(earned);
+        unawaited(_loadRewarded());
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        debugPrint('Rewarded failed to show: $error');
+        ad.dispose();
+        if (!completer.isCompleted) completer.complete(false);
+        unawaited(_loadRewarded());
+      },
+    );
+
+    try {
+      await ad.show(
+        onUserEarnedReward: (ad, reward) {
+          earned = true;
+          if (!completer.isCompleted) completer.complete(true);
+        },
+      );
+    } catch (error) {
+      debugPrint('Rewarded show threw: $error');
+      ad.dispose();
+      if (!completer.isCompleted) completer.complete(false);
+      unawaited(_loadRewarded());
+      return false;
+    }
+
+    return completer.future;
   }
 
   @override
   Future<bool> showInterstitial() async {
-    if (isTestMode) {
-      await Future<void>.delayed(const Duration(milliseconds: 350));
-      return true;
+    if (!_initialized) return false;
+    var ad = _interstitialAd ?? await _loadInterstitial();
+    if (ad == null) return false;
+    _interstitialAd = null;
+
+    final completer = Completer<bool>();
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        if (!completer.isCompleted) completer.complete(true);
+        unawaited(_loadInterstitial());
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        debugPrint('Interstitial failed to show: $error');
+        ad.dispose();
+        if (!completer.isCompleted) completer.complete(false);
+        unawaited(_loadInterstitial());
+      },
+    );
+    try {
+      await ad.show();
+    } catch (error) {
+      debugPrint('Interstitial show threw: $error');
+      ad.dispose();
+      if (!completer.isCompleted) completer.complete(false);
+      unawaited(_loadInterstitial());
+      return false;
     }
-    return false;
+    return completer.future;
   }
 }
