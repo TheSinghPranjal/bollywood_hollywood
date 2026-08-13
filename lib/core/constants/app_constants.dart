@@ -76,6 +76,9 @@ class AppConstants {
 
   static const List<int> timerOptionsMinutes = [2, 5, 10, 15, 20, 30, 0];
 
+  /// Show an interstitial only on every Nth Next Round tap.
+  static const int interstitialEveryNRounds = 5;
+
   /// Always use Google's official sample IDs during development.
   static const bool isAdTestMode = true;
 
