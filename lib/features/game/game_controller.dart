@@ -78,7 +78,6 @@ class GameController extends StateNotifier<GameControllerState>
   }
 
   @override
-  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
@@ -314,16 +313,22 @@ class GameController extends StateNotifier<GameControllerState>
       clearAdError: true,
     );
 
+    // Let the Game Over dialog finish closing so the native ad can present.
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+
     final ok = await _ref.read(adsServiceProvider).showRewardedAd();
+    final latest = state.session ?? session;
     if (!ok) {
       state = state.copyWith(
-        session: _engine.setStatus(session, GameStatus.lost),
+        session: _engine.setStatus(latest, GameStatus.lost),
         adErrorMessage: 'The reward could not be granted.',
       );
       return;
     }
 
-    final restored = _engine.grantExtraLife(session);
+    final restored = _engine.grantExtraLife(
+      latest.copyWith(status: GameStatus.lost),
+    );
     state = state.copyWith(session: restored, clearAdError: true);
     _skipNextInterstitial = true;
     _startTicker();

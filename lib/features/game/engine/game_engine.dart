@@ -441,7 +441,9 @@ class GameEngine {
   }
 
   GameSession grantExtraLife(GameSession session) {
-    if (session.extraLifeUsed || session.status != GameStatus.lost) {
+    if (session.extraLifeUsed) return session;
+    if (session.status != GameStatus.lost &&
+        session.status != GameStatus.watchingRewardedAd) {
       return session;
     }
     return session.copyWith(
