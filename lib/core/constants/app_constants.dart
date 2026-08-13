@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class AppConstants {
   AppConstants._();
 
@@ -74,8 +76,13 @@ class AppConstants {
 
   static const List<int> timerOptionsMinutes = [2, 5, 10, 15, 20, 30, 0];
 
-  /// AdMob test unit IDs (never use production IDs in debug).
+  /// Always use Google's official sample IDs during development.
   static const bool isAdTestMode = true;
+
+  static const String androidAppId =
+      'ca-app-pub-3940256099942544~3347511713';
+  static const String iosAppId =
+      'ca-app-pub-3940256099942544~1458002511';
   static const String androidBannerTestId =
       'ca-app-pub-3940256099942544/6300978111';
   static const String iosBannerTestId =
@@ -90,4 +97,24 @@ class AppConstants {
       'ca-app-pub-3940256099942544/4411468910';
 
   static const double bannerAdHeight = 50;
+
+  static bool get adsSupported =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
+  static String get bannerAdUnitId =>
+      defaultTargetPlatform == TargetPlatform.iOS
+          ? iosBannerTestId
+          : androidBannerTestId;
+
+  static String get rewardedAdUnitId =>
+      defaultTargetPlatform == TargetPlatform.iOS
+          ? iosRewardedTestId
+          : androidRewardedTestId;
+
+  static String get interstitialAdUnitId =>
+      defaultTargetPlatform == TargetPlatform.iOS
+          ? iosInterstitialTestId
+          : androidInterstitialTestId;
 }
