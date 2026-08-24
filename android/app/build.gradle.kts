@@ -46,6 +46,13 @@ fun validateReleaseAdMobIds() {
 val releaseAndroidAppId = loadAdmobConfig()["ADMOB_ANDROID_APP_ID"].orEmpty()
     .ifBlank { "TODO_ADMOB_ANDROID_APP_ID" }
 
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+
 android {
     namespace = "com.lazy_bear_club.bollywood_hollywood"
 
@@ -71,6 +78,15 @@ android {
         manifestPlaceholders["admobAppId"] = sampleAndroidAppId
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["keyPassword"] as String
+            storeFile = file(keystoreProperties["storeFile"] as String)
+            storePassword = keystoreProperties["storePassword"] as String
+        }
+    }
+
     buildTypes {
         getByName("debug") {
             manifestPlaceholders["admobAppId"] = sampleAndroidAppId
@@ -80,7 +96,7 @@ android {
             manifestPlaceholders["admobAppId"] = sampleAndroidAppId
         }
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
             manifestPlaceholders["admobAppId"] = releaseAndroidAppId
         }
     }
