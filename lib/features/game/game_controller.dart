@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/providers.dart';
+import 'interstitial_policy.dart';
 import '../../data/models/game_settings.dart';
 import '../../data/models/game_status.dart';
 import '../../data/repositories/movie_repository.dart';
@@ -43,8 +43,9 @@ class GameControllerState {
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       countdown: clearCountdown ? null : countdown ?? this.countdown,
       hintJustUnlocked: hintJustUnlocked ?? this.hintJustUnlocked,
-      adErrorMessage:
-          clearAdError ? null : adErrorMessage ?? this.adErrorMessage,
+      adErrorMessage: clearAdError
+          ? null
+          : adErrorMessage ?? this.adErrorMessage,
       roundsPlayed: roundsPlayed ?? this.roundsPlayed,
     );
   }
@@ -52,8 +53,8 @@ class GameControllerState {
 
 final gameControllerProvider =
     StateNotifierProvider<GameController, GameControllerState>((ref) {
-  return GameController(ref);
-});
+      return GameController(ref);
+    });
 
 class GameController extends StateNotifier<GameControllerState>
     with WidgetsBindingObserver {
@@ -65,6 +66,7 @@ class GameController extends StateNotifier<GameControllerState>
   Timer? _ticker;
   Timer? _countdownTimer;
   bool _skipNextInterstitial = false;
+  DateTime? _lastInterstitialAt;
 
   GameEngine get _engine => _ref.read(gameEngineProvider);
   MovieRepository get _movies => _ref.read(movieRepositoryProvider);
@@ -93,16 +95,20 @@ class GameController extends StateNotifier<GameControllerState>
     _ticker?.cancel();
     _countdownTimer?.cancel();
 
-    final shouldShowInterstitial = fromNextRound &&
-        !_skipNextInterstitial &&
-        state.roundsPlayed > 0 &&
-        state.roundsPlayed % AppConstants.interstitialEveryNRounds == 0;
+    final shouldShowInterstitial = InterstitialPolicy.shouldShow(
+      fromNextRound: fromNextRound,
+      skipNext: _skipNextInterstitial,
+      roundsPlayed: state.roundsPlayed,
+      lastShownAt: _lastInterstitialAt,
+      now: DateTime.now(),
+    );
     if (shouldShowInterstitial) {
       final ads = _ref.read(adsServiceProvider);
       state = state.copyWith(
         session: state.session?.copyWith(status: GameStatus.adLoading),
       );
-      await ads.showInterstitial();
+      final shown = await ads.showInterstitial();
+      if (shown) _lastInterstitialAt = DateTime.now();
     }
     _skipNextInterstitial = false;
 
@@ -258,16 +264,16 @@ class GameController extends StateNotifier<GameControllerState>
 
   Future<void> _onLose() async {
     final settings = _settings;
-    await _ref.read(feedbackServiceProvider).lose(
-          sound: settings.soundEnabled,
-          haptics: settings.hapticsEnabled,
-        );
+    await _ref
+        .read(feedbackServiceProvider)
+        .lose(sound: settings.soundEnabled, haptics: settings.hapticsEnabled);
   }
 
   void pause() {
     final session = state.session;
     if (session == null) return;
-    if (!session.status.allowsGuesses && session.status != GameStatus.hintOpen) {
+    if (!session.status.allowsGuesses &&
+        session.status != GameStatus.hintOpen) {
       return;
     }
     _ticker?.cancel();

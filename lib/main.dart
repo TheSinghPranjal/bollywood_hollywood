@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'core/constants/app_constants.dart';
+import 'core/constants/ad_config.dart';
 import 'core/providers.dart';
 import 'core/theme/app_theme.dart';
 import 'features/splash/splash_screen.dart';
@@ -11,13 +11,12 @@ import 'services/ads/ads_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  await AdConfig.load();
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   final prefs = await SharedPreferences.getInstance();
-  final ads = AppConstants.adsSupported
-      ? MobileAdsService(isTestMode: AppConstants.isAdTestMode)
+  final ads = AdConfig.adsSupported
+      ? MobileAdsService(isTestMode: AdConfig.isTestMode)
       : FakeAdsService();
   await ads.initialize();
 
