@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 class AppConstants {
   AppConstants._();
 
@@ -79,45 +77,8 @@ class AppConstants {
   /// Show an interstitial only on every Nth Next Round tap.
   static const int interstitialEveryNRounds = 5;
 
-  /// Always use Google's official sample IDs during development.
-  static const bool isAdTestMode = true;
-
-  static const String androidAppId =
-      'ca-app-pub-3940256099942544~3347511713';
-  static const String iosAppId =
-      'ca-app-pub-3940256099942544~1458002511';
-  static const String androidBannerTestId =
-      'ca-app-pub-3940256099942544/6300978111';
-  static const String iosBannerTestId =
-      'ca-app-pub-3940256099942544/2934735716';
-  static const String androidRewardedTestId =
-      'ca-app-pub-3940256099942544/5224354917';
-  static const String iosRewardedTestId =
-      'ca-app-pub-3940256099942544/1712484513';
-  static const String androidInterstitialTestId =
-      'ca-app-pub-3940256099942544/1033173712';
-  static const String iosInterstitialTestId =
-      'ca-app-pub-3940256099942544/4411468910';
+  /// Extra quiet period so several fast rounds cannot stack interstitials.
+  static const Duration interstitialMinimumInterval = Duration(seconds: 90);
 
   static const double bannerAdHeight = 50;
-
-  static bool get adsSupported =>
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS);
-
-  static String get bannerAdUnitId =>
-      defaultTargetPlatform == TargetPlatform.iOS
-          ? iosBannerTestId
-          : androidBannerTestId;
-
-  static String get rewardedAdUnitId =>
-      defaultTargetPlatform == TargetPlatform.iOS
-          ? iosRewardedTestId
-          : androidRewardedTestId;
-
-  static String get interstitialAdUnitId =>
-      defaultTargetPlatform == TargetPlatform.iOS
-          ? iosInterstitialTestId
-          : androidInterstitialTestId;
 }

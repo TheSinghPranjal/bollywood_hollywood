@@ -1,8 +1,50 @@
+import groovy.json.JsonSlurper
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Google's sample Android App ID. Debug and profile keep this so they only
+// ever serve test ads. Must stay in sync with AdIds.sampleAndroidAppId.
+val sampleAndroidAppId = "ca-app-pub-3940256099942544~3347511713"
+
+fun loadAdmobConfig(): Map<String, String> {
+    val file = rootProject.file("../config/admob.json")
+    if (!file.exists()) return emptyMap()
+    @Suppress("UNCHECKED_CAST")
+    val parsed = JsonSlurper().parse(file) as Map<String, Any?>
+    return parsed.mapValues { (_, value) -> value?.toString()?.trim().orEmpty() }
+}
+
+fun flutterSdkPath(): String {
+    val properties = Properties()
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { properties.load(it) }
+    }
+    return properties.getProperty("flutter.sdk")
+        ?: System.getenv("FLUTTER_ROOT")
+        ?: throw GradleException(
+            "Flutter SDK not found. Set flutter.sdk in android/local.properties.",
+        )
+}
+
+fun validateReleaseAdMobIds() {
+    val dart = file("${flutterSdkPath()}/bin/dart")
+    if (!dart.exists()) {
+        throw GradleException("Dart executable not found at ${dart.absolutePath}")
+    }
+    exec {
+        workingDir = rootProject.projectDir.parentFile
+        commandLine(dart.absolutePath, "run", "tool/validate_admob.dart", "--android")
+    }
+}
+
+val releaseAndroidAppId = loadAdmobConfig()["ADMOB_ANDROID_APP_ID"].orEmpty()
+    .ifBlank { "TODO_ADMOB_ANDROID_APP_ID" }
 
 android {
     namespace = "com.lazy_bear_club.bollywood_hollywood"
@@ -26,11 +68,30 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["admobAppId"] = sampleAndroidAppId
     }
 
     buildTypes {
+        getByName("debug") {
+            manifestPlaceholders["admobAppId"] = sampleAndroidAppId
+        }
+        // Flutter creates this type from debug before this block runs.
+        getByName("profile") {
+            manifestPlaceholders["admobAppId"] = sampleAndroidAppId
+        }
         release {
             signingConfig = signingConfigs.getByName("debug")
+            manifestPlaceholders["admobAppId"] = releaseAndroidAppId
+        }
+    }
+}
+
+// Fail release packaging if config/admob.json still has sample or placeholder
+// IDs. Debug and profile are not checked.
+tasks.configureEach {
+    if (name == "bundleRelease" || name == "assembleRelease") {
+        doFirst {
+            validateReleaseAdMobIds()
         }
     }
 }

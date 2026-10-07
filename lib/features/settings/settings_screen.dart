@@ -69,7 +69,8 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         ],
                         selected: {settings.industry},
-                        onSelectionChanged: (s) => notifier.setIndustry(s.first),
+                        onSelectionChanged: (s) =>
+                            notifier.setIndustry(s.first),
                       ),
                     ),
                     _SectionCard(
@@ -104,10 +105,7 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                           const Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('1990'),
-                              Text('Now'),
-                            ],
+                            children: [Text('1990'), Text('Now')],
                           ),
                         ],
                       ),
@@ -119,7 +117,9 @@ class SettingsScreen extends ConsumerWidget {
                           for (var i = 0; i <= 4; i++)
                             Expanded(
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                ),
                                 child: ChoiceChip(
                                   label: Center(child: Text('$i')),
                                   selected: settings.hintCount == i,
@@ -150,6 +150,7 @@ class SettingsScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
+                    const _AdPrivacySection(),
                   ],
                 ),
               ),
@@ -157,6 +158,45 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Shown only when UMP requires a privacy-options entry point.
+class _AdPrivacySection extends ConsumerStatefulWidget {
+  const _AdPrivacySection();
+
+  @override
+  ConsumerState<_AdPrivacySection> createState() => _AdPrivacySectionState();
+}
+
+class _AdPrivacySectionState extends ConsumerState<_AdPrivacySection> {
+  late final Future<bool> _required;
+
+  @override
+  void initState() {
+    super.initState();
+    _required = ref.read(adsServiceProvider).privacyOptionsRequired;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _required,
+      builder: (context, snapshot) {
+        if (snapshot.data != true) return const SizedBox.shrink();
+        return _SectionCard(
+          title: 'ADS',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Ad privacy choices'),
+            subtitle: const Text('Manage how ads are personalized'),
+            onTap: () {
+              ref.read(adsServiceProvider).showPrivacyOptions();
+            },
+          ),
+        );
+      },
     );
   }
 }

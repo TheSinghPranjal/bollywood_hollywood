@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../../core/constants/ad_config.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 
-/// Anchored banner using Google sample test units. Keeps a reserved height
-/// so gameplay layout never jumps if the ad is still loading.
+/// Anchored banner. Keeps a reserved height so gameplay layout never jumps
+/// if the ad is still loading. Debug/profile use sample units; release uses
+/// the production unit from [AdConfig].
 class BannerAdSlot extends StatefulWidget {
   const BannerAdSlot({super.key});
 
@@ -26,19 +28,20 @@ class _BannerAdSlotState extends State<BannerAdSlot> {
   }
 
   Future<void> _load() async {
-    if (!AppConstants.adsSupported) return;
+    if (!AdConfig.adsSupported || !AdConfig.canRequestAds) return;
 
     final width = MediaQuery.sizeOf(context).width.truncate();
     AdSize size = AdSize.banner;
     try {
-      final adaptive = await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(width);
+      final adaptive =
+          await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(width);
       if (adaptive != null) size = adaptive;
     } catch (error) {
       debugPrint('Adaptive banner size failed: $error');
     }
 
     final banner = BannerAd(
-      adUnitId: AppConstants.bannerAdUnitId,
+      adUnitId: AdConfig.bannerAdUnitId,
       size: size,
       request: const AdRequest(),
       listener: BannerAdListener(
@@ -84,7 +87,9 @@ class _BannerAdSlotState extends State<BannerAdSlot> {
                 color: AppColors.surface,
                 child: Center(
                   child: Text(
-                    AppConstants.adsSupported ? 'Loading ad…' : 'ADS UNAVAILABLE',
+                    AdConfig.adsSupported && AdConfig.canRequestAds
+                        ? 'Loading ad…'
+                        : 'ADS UNAVAILABLE',
                     style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontWeight: FontWeight.w700,

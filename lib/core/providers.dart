@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/constants/ad_config.dart';
 import '../core/constants/app_constants.dart';
 import '../data/models/game_settings.dart';
 import '../data/repositories/movie_repository.dart';
@@ -26,8 +27,8 @@ final gameEngineProvider = Provider<GameEngine>((ref) {
 });
 
 final adsServiceProvider = Provider<AdsService>((ref) {
-  if (AppConstants.adsSupported) {
-    return MobileAdsService(isTestMode: AppConstants.isAdTestMode);
+  if (AdConfig.adsSupported) {
+    return MobileAdsService(isTestMode: AdConfig.isTestMode);
   }
   return FakeAdsService();
 });
@@ -78,4 +79,3 @@ class SettingsController extends StateNotifier<GameSettings> {
   Future<void> setHaptics(bool enabled) =>
       update((s) => s.copyWith(hapticsEnabled: enabled));
 }
-
